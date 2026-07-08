@@ -122,13 +122,15 @@ function enableInput(enabled) {
 }
 
 function setupFlybyPlane() {
-  const plane = document.querySelector(".flyby-plane");
-  if (!plane) return;
+  const planes = document.querySelectorAll(".flyby-plane");
+  if (!planes.length) return;
 
-  plane.addEventListener("animationiteration", () => {
-    plane.classList.remove("flyby-first", ...FLYBY_SIZE_CLASSES);
-    const nextClass = FLYBY_SIZE_CLASSES[Math.floor(Math.random() * FLYBY_SIZE_CLASSES.length)];
-    plane.classList.add(nextClass);
+  planes.forEach((plane) => {
+    plane.addEventListener("animationiteration", () => {
+      plane.classList.remove("flyby-first", ...FLYBY_SIZE_CLASSES);
+      const nextClass = FLYBY_SIZE_CLASSES[Math.floor(Math.random() * FLYBY_SIZE_CLASSES.length)];
+      plane.classList.add(nextClass);
+    });
   });
 }
 

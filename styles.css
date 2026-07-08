@@ -31,7 +31,7 @@ body {
 body {
   margin: 0;
   color: var(--text);
-  background: #77bce4 url("pixil-frame-0.png") center / cover no-repeat fixed;
+  background: #77bce4 url("pixel-sky-background.png") center / cover no-repeat fixed;
   font-family: var(--pixel-font);
   font-smooth: never;
   text-rendering: optimizeSpeed;
@@ -77,6 +77,9 @@ input {
 
 .flyby-plane {
   --flyby-size: clamp(340px, 46vw, 620px);
+  --flyby-animation: flyby-arc-one;
+  --flyby-duration: 28s;
+  --flyby-delay: 0s;
 
   position: absolute;
   left: 0;
@@ -86,11 +89,43 @@ input {
   object-fit: contain;
   image-rendering: pixelated;
   pointer-events: none;
-  z-index: -1;
+  z-index: 0;
   opacity: 0;
   will-change: transform, opacity;
-  animation: rare-flyby 28s linear infinite;
-  animation-delay: 0s;
+  animation: var(--flyby-animation) var(--flyby-duration) linear infinite;
+  animation-delay: var(--flyby-delay);
+}
+
+.flyby-one {
+  --flyby-animation: flyby-arc-one;
+  --flyby-duration: 28s;
+  --flyby-delay: 0s;
+
+  top: 38vh;
+}
+
+.flyby-two {
+  --flyby-animation: flyby-arc-two;
+  --flyby-duration: 34s;
+  --flyby-delay: -18s;
+
+  top: 16vh;
+}
+
+.flyby-three {
+  --flyby-animation: flyby-arc-three;
+  --flyby-duration: 41s;
+  --flyby-delay: -28s;
+
+  top: 55vh;
+}
+
+.flyby-four {
+  --flyby-animation: flyby-arc-four;
+  --flyby-duration: 31s;
+  --flyby-delay: -9s;
+
+  top: 28vh;
 }
 
 .flyby-first {
@@ -213,7 +248,7 @@ input {
   }
 }
 
-@keyframes rare-flyby {
+@keyframes flyby-arc-one {
   0% {
     opacity: 1;
     transform: translate3d(-70vw, 4vh, 0) rotate(-5deg);
@@ -233,6 +268,90 @@ input {
   }
 }
 
+@keyframes flyby-arc-two {
+  0%,
+  24% {
+    opacity: 0;
+    transform: translate3d(-82vw, -8vh, 0) rotate(8deg);
+  }
+  24.1% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 1;
+    transform: translate3d(-18vw, 7vh, 0) rotate(4deg);
+  }
+  68% {
+    opacity: 1;
+    transform: translate3d(54vw, 13vh, 0) rotate(-2deg);
+  }
+  86% {
+    opacity: 1;
+    transform: translate3d(136vw, -4vh, 0) rotate(-7deg);
+  }
+  86.1%,
+  100% {
+    opacity: 0;
+    transform: translate3d(136vw, -4vh, 0) rotate(-7deg);
+  }
+}
+
+@keyframes flyby-arc-three {
+  0%,
+  12% {
+    opacity: 0;
+    transform: translate3d(136vw, 12vh, 0) rotate(178deg);
+  }
+  12.1% {
+    opacity: 1;
+  }
+  35% {
+    opacity: 1;
+    transform: translate3d(82vw, -8vh, 0) rotate(182deg);
+  }
+  61% {
+    opacity: 1;
+    transform: translate3d(18vw, -15vh, 0) rotate(185deg);
+  }
+  82% {
+    opacity: 1;
+    transform: translate3d(-76vw, 5vh, 0) rotate(190deg);
+  }
+  82.1%,
+  100% {
+    opacity: 0;
+    transform: translate3d(-76vw, 5vh, 0) rotate(190deg);
+  }
+}
+
+@keyframes flyby-arc-four {
+  0%,
+  38% {
+    opacity: 0;
+    transform: translate3d(-78vw, 20vh, 0) rotate(-12deg);
+  }
+  38.1% {
+    opacity: 1;
+  }
+  57% {
+    opacity: 1;
+    transform: translate3d(-6vw, -10vh, 0) rotate(-6deg);
+  }
+  78% {
+    opacity: 1;
+    transform: translate3d(68vw, -17vh, 0) rotate(2deg);
+  }
+  94% {
+    opacity: 1;
+    transform: translate3d(138vw, 4vh, 0) rotate(8deg);
+  }
+  94.1%,
+  100% {
+    opacity: 0;
+    transform: translate3d(138vw, 4vh, 0) rotate(8deg);
+  }
+}
+
 .terminal-wrap {
   position: relative;
   z-index: 1;
@@ -246,7 +365,7 @@ input {
   overflow: hidden;
   border: 0;
   border-radius: 0;
-  background: url("pixil-frame-0 (2).png") center / 100% 100% no-repeat;
+  background: url("terminal-frame.png") center / 100% 100% no-repeat;
   image-rendering: pixelated;
 }
 
@@ -378,6 +497,22 @@ input {
   .flyby-plane {
     --flyby-size: clamp(260px, 92vw, 390px);
     top: 40vh;
+  }
+
+  .flyby-one {
+    top: 40vh;
+  }
+
+  .flyby-two {
+    top: 17vh;
+  }
+
+  .flyby-three {
+    top: 58vh;
+  }
+
+  .flyby-four {
+    top: 29vh;
   }
 
   .flyby-first {
