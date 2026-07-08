@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EcoSky Terminal</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scene" aria-label="EcoSky terminal">
+    <img class="flyby-plane flyby-first" src="pixil-frame-0 (4).png" alt="">
+    <img class="plane plane-a" src="pixil-frame-0 (3).png" alt="">
+    <img class="plane plane-b" src="pixil-frame-0 (3).png" alt="">
+    <img class="plane plane-c" src="pixil-frame-0 (3).png" alt="">
+    <img class="plane plane-d" src="pixil-frame-0 (3).png" alt="">
+    <img class="plane plane-e" src="pixil-frame-0 (3).png" alt="">
+    <img class="plane plane-f" src="pixil-frame-0 (3).png" alt="">
+
+    <main class="terminal-wrap">
+      <section class="terminal-window">
+        <div class="terminal-brand" aria-hidden="true">ECOSKY</div>
+        <div class="terminal-screen">
+          <div id="terminalLog" class="terminal-log" role="log" aria-live="polite"></div>
+
+          <form id="terminalForm" class="terminal-form">
+            <span id="promptText" class="prompt">&gt;&gt;&gt;</span>
+            <input
+              id="terminalInput"
+              type="text"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+              disabled
+              aria-label="EcoSky command line">
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
