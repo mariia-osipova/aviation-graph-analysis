@@ -18,6 +18,83 @@ const MENU_OPTIONS = {
   "0": "Salir",
 };
 
+const CENTRALITY_ANSWER_LINES = [
+  "[Centralidad]",
+  "",
+  "  Top GRADO DE SALIDA (mayores distribuidores):",
+  "    BOG  -> 77 destinos directos",
+  "    CAI  -> 77 destinos directos",
+  "    CAN  -> 77 destinos directos",
+  "    CDG  -> 77 destinos directos",
+  "    CTU  -> 77 destinos directos",
+  "",
+  "  Top GRADO DE ENTRADA (destinos más populares):",
+  "    BKK  <- 31 orígenes directos",
+  "    CMN  <- 31 orígenes directos",
+  "    JNB  <- 31 orígenes directos",
+  "    LIS  <- 31 orígenes directos",
+  "    MAD  <- 31 orígenes directos",
+  "",
+  "  Closeness (cercanía; distancia = escalas + aristas):",
+  "    CDG  -> 0.7549",
+  "    FRA  -> 0.7476",
+  "    YYZ  -> 0.6814",
+  "    MUC  -> 0.6364",
+  "    VIE  -> 0.6111",
+  "",
+  "  Hubs críticos (Betweenness aprox., 300 pares):",
+  "    CDG  -> aparece como escala en 13 rutas mínimas",
+  "    FRA  -> aparece como escala en 12 rutas mínimas",
+  "    GRU  -> aparece como escala en 11 rutas mínimas",
+  "    PVG  -> aparece como escala en 11 rutas mínimas",
+  "    ADD  -> aparece como escala en 9 rutas mínimas",
+];
+
+const TOPOLOGY_ANSWER_LINES = [
+  "[Métricas de topología]",
+  "  Componentes fuertemente conexas: 48 (47 de un solo aeropuerto).",
+  "  Mayor componente: 31 aeropuertos.",
+  "",
+  "  Distancia usada: ESCALAS + ARISTAS (stops de la ruta + nº de tramos).",
+  "    Diámetro : 4  (la mayor distancia mínima entre dos aeropuertos)",
+  "    Radio    : 3",
+  "    Centro    (ε = radio 3)   : ADD, ALG, ATH, BOG, BOM, BRU, CAI, CAN, CDG, CPH, DEL, DUB, FRA, GRU, HGH, MEL, MUC, PVG, SCL, SYD, VIE, YYZ",
+  "    Periferia (ε = diámetro 4): AEP, CGO, CNF, CTU, PEK, SHA, SZX, VCP, XIY",
+  "    Ruta más larga: AEP (Argentina)  ->  SCL (Chile)  ->  CGO (China)",
+  "      = 2 escalas + 2 aristas = 4",
+  "    Excentricidad por aeropuerto (escalas + aristas):",
+  "      ADD  -> 3",
+  "      AEP  -> 4",
+  "      ALG  -> 3",
+  "      ATH  -> 3",
+  "      BOG  -> 3",
+  "      BOM  -> 3",
+  "      BRU  -> 3",
+  "      CAI  -> 3",
+  "      CAN  -> 3",
+  "      CDG  -> 3",
+  "      CGO  -> 4",
+  "      CNF  -> 4",
+  "      CPH  -> 3",
+  "      CTU  -> 4",
+  "      DEL  -> 3",
+  "      DUB  -> 3",
+  "      FRA  -> 3",
+  "      GRU  -> 3",
+  "      HGH  -> 3",
+  "      MEL  -> 3",
+  "      ... (11 más)",
+  "",
+  "  Coeficiente de agrupamiento (clustering, no dirigido):",
+  "    Promedio de la red: 0.8405",
+  "    Top 5 (vecinos más interconectados entre sí):",
+  "      SVO  -> 0.9977",
+  "      DME  -> 0.9975",
+  "      KUL  -> 0.9975",
+  "      SGN  -> 0.9975",
+  "      SAW  -> 0.9852",
+];
+
 const graph = {
   meta: null,
   vertices: [],
@@ -29,6 +106,8 @@ const graph = {
   co2: null,
   precio: null,
   escalas: null,
+  edgeAdj: [],
+  pairEdges: [],
   pairCounts: [],
   uniqueAdj: [],
   inNeighbors: [],
@@ -188,8 +267,8 @@ async function loadGraph() {
     writeLine([
       "Load failed.",
       error.message,
-      "Run a local server from tp4: python3 -m http.server 8000",
-      "Then open: http://127.0.0.1:8000/site-mari/",
+      "Run a local server from this project: python3 -m http.server 8000",
+      "Then open: http://127.0.0.1:8000/",
     ], "terminal-error");
   }
 }
@@ -204,12 +283,14 @@ function buildGraph(meta, edgeText) {
   const edgeCount = Math.max(0, lines.length - 1);
   graph.from = new Uint16Array(edgeCount);
   graph.to = new Uint16Array(edgeCount);
-  graph.tiempo = new Float32Array(edgeCount);
-  graph.co2 = new Float32Array(edgeCount);
-  graph.precio = new Float32Array(edgeCount);
+  graph.tiempo = new Float64Array(edgeCount);
+  graph.co2 = new Float64Array(edgeCount);
+  graph.precio = new Float64Array(edgeCount);
   graph.escalas = new Uint8Array(edgeCount);
 
   const n = graph.vertices.length;
+  graph.edgeAdj = Array.from({ length: n }, () => []);
+  graph.pairEdges = Array.from({ length: n }, () => new Map());
   graph.pairCounts = Array.from({ length: n }, () => new Map());
   graph.inNeighbors = Array.from({ length: n }, () => new Set());
   graph.bestMaps = Object.fromEntries(CRITERIA.map((criterion) => [
@@ -231,6 +312,8 @@ function buildGraph(meta, edgeText) {
     graph.escalas[edgeId] = Number(parts[5]);
 
     graph.pairCounts[from].set(to, (graph.pairCounts[from].get(to) || 0) + 1);
+    if (!graph.pairEdges[from].has(to)) graph.pairEdges[from].set(to, []);
+    graph.pairEdges[from].get(to).push(edgeId);
     graph.inNeighbors[to].add(from);
 
     for (const criterion of CRITERIA) {
@@ -241,6 +324,8 @@ function buildGraph(meta, edgeText) {
       }
     }
   }
+
+  graph.edgeAdj = graph.pairEdges.map((destinations) => [...destinations.values()].flat());
 
   graph.uniqueAdj = graph.pairCounts.map((destinations) =>
     [...destinations.keys()].sort((a, b) => idToCode(a).localeCompare(idToCode(b)))
@@ -273,15 +358,11 @@ function bestEdge(from, to, criterion) {
   return graph.bestMaps[criterion][from].get(to) || null;
 }
 
-function pairKey(from, to) {
-  return `${from}>${to}`;
-}
-
 function pathKey(path) {
   return path.join(">");
 }
 
-function dijkstra(origin, destination, criterion, blockedNodes = new Set(), blockedPairs = new Set()) {
+function dijkstra(origin, destination, criterion, blockedNodes = new Set(), blockedEdges = new Set()) {
   if (origin === undefined || destination === undefined || blockedNodes.has(origin) || blockedNodes.has(destination)) {
     return null;
   }
@@ -294,21 +375,22 @@ function dijkstra(origin, destination, criterion, blockedNodes = new Set(), bloc
   dist[origin] = 0;
 
   const heap = new MinHeap();
-  heap.push([0, origin]);
+  heap.push([0, idToCode(origin), origin]);
 
   while (heap.size) {
-    const [cost, node] = heap.pop();
+    const [cost, , node] = heap.pop();
     if (cost !== dist[node]) continue;
     if (node === destination) break;
 
-    for (const edge of graph.bestAdj[criterion][node]) {
-      const next = edge.to;
-      if (blockedNodes.has(next) || blockedPairs.has(pairKey(node, next))) continue;
-      const nextCost = cost + edge.cost;
+    for (const edgeId of graph.edgeAdj[node]) {
+      if (blockedEdges.has(edgeId)) continue;
+      const next = graph.to[edgeId];
+      if (blockedNodes.has(next)) continue;
+      const nextCost = cost + edgeWeight(edgeId, criterion);
       if (nextCost < dist[next]) {
         dist[next] = nextCost;
         prev[next] = node;
-        heap.push([nextCost, next]);
+        heap.push([nextCost, idToCode(next), next]);
       }
     }
   }
@@ -358,12 +440,16 @@ function pathMetrics(path) {
 }
 
 function kShortest(origin, destination, k, criterion) {
+  if (k <= 0) return [];
+
   const first = dijkstra(origin, destination, criterion);
   if (!first) return [];
 
   const accepted = [first];
   const acceptedKeys = new Set([pathKey(first.path)]);
-  const candidates = [];
+  const candidates = new MinHeap();
+  const candidateKeys = new Set();
+  let counter = 0;
 
   while (accepted.length < k) {
     const lastPath = accepted[accepted.length - 1].path;
@@ -372,31 +458,36 @@ function kShortest(origin, destination, k, criterion) {
       const root = lastPath.slice(0, index + 1);
       const spur = root[root.length - 1];
       const blockedNodes = new Set(root.slice(0, -1));
-      const blockedPairs = new Set();
+      const blockedEdges = new Set();
 
       for (const acceptedRoute of accepted) {
         const path = acceptedRoute.path;
         if (path.length > index + 1 && root.every((node, nodeIndex) => node === path[nodeIndex])) {
-          blockedPairs.add(pairKey(path[index], path[index + 1]));
+          const edgeIds = graph.pairEdges[path[index]].get(path[index + 1]) || [];
+          edgeIds.forEach((edgeId) => blockedEdges.add(edgeId));
         }
       }
 
-      const spurRoute = dijkstra(spur, destination, criterion, blockedNodes, blockedPairs);
+      const spurRoute = dijkstra(spur, destination, criterion, blockedNodes, blockedEdges);
       if (!spurRoute) continue;
 
       const totalPath = root.slice(0, -1).concat(spurRoute.path);
       const key = pathKey(totalPath);
-      if (acceptedKeys.has(key) || candidates.some((item) => pathKey(item.path) === key)) continue;
+      if (acceptedKeys.has(key) || candidateKeys.has(key)) continue;
 
       const cost = pathCost(totalPath, criterion);
-      if (cost !== null) candidates.push({ path: totalPath, cost });
+      if (cost === null) continue;
+
+      candidates.push([cost, counter, totalPath]);
+      candidateKeys.add(key);
+      counter += 1;
     }
 
-    if (!candidates.length) break;
-    candidates.sort((a, b) => a.cost - b.cost || pathKey(a.path).localeCompare(pathKey(b.path)));
-    const next = candidates.shift();
-    accepted.push(next);
-    acceptedKeys.add(pathKey(next.path));
+    if (!candidates.size) break;
+    const [cost, , path] = candidates.pop();
+    candidateKeys.delete(pathKey(path));
+    accepted.push({ cost, path });
+    acceptedKeys.add(pathKey(path));
   }
 
   return accepted;
@@ -623,11 +714,17 @@ function writeRoute(originCode, destinationCode, criterion) {
   const route = dijkstra(origin, destination, criterion);
 
   if (!route) {
-    writeLine(`No route from ${originCode} to ${destinationCode}.`, "terminal-muted");
+    writeLine([
+      `[Ruta por ${CRITERION_LABELS[criterion]}] ${formatAirport(origin)} -> ${formatAirport(destination)}`,
+      "  No existe ruta entre esos aeropuertos.",
+    ], "terminal-muted");
     return;
   }
 
-  writeLine(formatRouteBlock(`Ruta por ${CRITERION_LABELS[criterion]}`, route.path, criterion));
+  writeLine([
+    `[Ruta por ${CRITERION_LABELS[criterion]}] ${formatAirport(origin)} -> ${formatAirport(destination)}`,
+    ...formatSimpleRoute(route.path),
+  ]);
 }
 
 function writeBestRoutes(originCode, destinationCode) {
@@ -640,81 +737,123 @@ function writeBestRoutes(originCode, destinationCode) {
     ["Más barata", "precio"],
   ];
 
-  const lines = [`[Mejores rutas] ${originCode} -> ${destinationCode}`];
-  let any = false;
+  const lines = [`[Mejores rutas] ${formatAirport(origin)} -> ${formatAirport(destination)}`];
+  const routes = [];
   for (const [label, criterion] of labels) {
     const route = dijkstra(origin, destination, criterion);
-    if (!route) continue;
-    any = true;
+    if (!route) {
+      writeLine([...lines, "  No existe ruta entre esos aeropuertos."], "terminal-muted");
+      return;
+    }
+    const metrics = pathMetrics(route.path);
+    routes.push({ label, criterion, path: route.path, metrics });
     lines.push("");
-    lines.push(...formatRouteBlock(label, route.path, criterion));
+    lines.push(`  >> ${label}`);
+    lines.push(`      ${formatPath(route.path)}`);
+    lines.push(`      ${formatMetrics(metrics)}`);
   }
 
-  writeLine(any ? lines : `No route from ${originCode} to ${destinationCode}.`, any ? "terminal-output" : "terminal-muted");
+  lines.push("");
+  lines.push(...formatComparisonTable(routes));
+
+  const fast = routes.find((route) => route.label === "Más rápida");
+  const eco = routes.find((route) => route.label === "Ecológica");
+  if (fast && eco) {
+    const co2Saved = fast.metrics.co2 - eco.metrics.co2;
+    lines.push(
+      `  Ruta ecológica vs la más rápida: ${deltaMinutes(eco.metrics.tiempo, fast.metrics.tiempo)} ` +
+      `de viaje, ahorra ${formatNumber0(co2Saved)} kg de CO2 (${percentSaved(fast.metrics.co2, eco.metrics.co2).toFixed(1)}%).`
+    );
+  }
+
+  writeLine(lines);
 }
 
 function writeKRoutes(originCode, destinationCode, criterion, k) {
   const origin = codeToId(originCode);
   const destination = codeToId(destinationCode);
-  const limitedK = Math.max(1, Math.min(8, k || 3));
-  const routes = kShortest(origin, destination, limitedK, criterion);
+  const requestedK = Math.max(1, k || 3);
+  const routes = kShortest(origin, destination, requestedK, criterion);
 
+  const criterionName = { tiempo: "tiempo", co2: "CO2", precio: "precio", escalas: "escalas" }[criterion] || criterion;
+  const lines = [`[K rutas] mejores por ${criterionName}: ${formatAirport(origin)} -> ${formatAirport(destination)}`];
   if (!routes.length) {
-    writeLine(`No route from ${originCode} to ${destinationCode}.`, "terminal-muted");
+    writeLine([...lines, "  No existe ruta entre esos aeropuertos."], "terminal-muted");
     return;
   }
 
-  const lines = [`[K rutas] mejores por ${CRITERION_LABELS[criterion]}: ${originCode} -> ${destinationCode}`];
   routes.forEach((route, index) => {
     lines.push("");
-    lines.push(...formatRouteBlock(`Route ${index + 1}`, route.path, criterion));
+    lines.push(`  ${index + 1}) ${formatPath(route.path)}`);
+    lines.push(`     ${formatMetrics(pathMetrics(route.path))}`);
   });
+  if (routes.length < requestedK) {
+    lines.push("");
+    lines.push(`  (solo existen ${routes.length} ruta/s distinta/s sin ciclos)`);
+  }
   writeLine(lines);
 }
 
-function formatRouteBlock(title, path, criterion) {
-  const metrics = pathMetrics(path);
-  const codes = path.map(idToCode);
+function formatSimpleRoute(path) {
   return [
-    `  >> ${title}`,
-    `     ${codes.join(" -> ")}`,
-    `      Costo (${criterion}): ${formatCost(pathCost(path, criterion), criterion)}`,
-    `      Escalas: ${metrics.escalas} | Tiempo: ${formatMinutes(metrics.tiempo)} | CO2: ${formatInteger(Math.round(metrics.co2))} kg | Precio: ${formatInteger(Math.round(metrics.precio))} ${graph.meta.currency || ""}`.trim(),
-    `      Aristas paralelas: ${formatParallelCounts(path)}`,
+    `  Ruta   : ${formatPath(path)}`,
+    `  ${formatMetrics(pathMetrics(path))}`,
   ];
 }
 
-function formatParallelCounts(path) {
-  if (path.length < 2) return "-";
-  return path
-    .slice(0, -1)
-    .map((from, index) => {
-      const to = path[index + 1];
-      return `${idToCode(from)}>${idToCode(to)}:${formatInteger(graph.pairCounts[from].get(to) || 0)}`;
-    })
-    .join(" | ");
+function formatAirport(id) {
+  const code = idToCode(id);
+  const country = graph.countries[id];
+  return country ? `${code} (${country})` : code;
+}
+
+function formatPath(path) {
+  return path.map((id) => formatAirport(id)).join("  ->  ");
+}
+
+function formatMetrics(metrics) {
+  return `Escalas: ${metrics.escalas} | Tiempo: ${formatMinutes(metrics.tiempo)} | ` +
+    `CO2: ${formatNumber0(metrics.co2)} kg | Precio: ${formatNumber0(metrics.precio)} ${graph.meta.currency || ""}`.trim();
+}
+
+function formatComparisonTable(routes) {
+  const minStops = Math.min(...routes.map((route) => route.metrics.escalas));
+  const minTime = Math.min(...routes.map((route) => route.metrics.tiempo));
+  const minCo2 = Math.min(...routes.map((route) => route.metrics.co2));
+  const minPrice = Math.min(...routes.map((route) => route.metrics.precio));
+
+  const lines = [
+    "  --------------------------- CUADRO COMPARATIVO ---------------------------",
+    `  ${"Ruta".padEnd(14)}${"Escalas".padStart(9)}${"Tiempo".padStart(12)}${"CO2(kg)".padStart(11)}${"Precio".padStart(13)}`,
+  ];
+
+  for (const route of routes) {
+    const stops = `${route.metrics.escalas}${route.metrics.escalas === minStops ? "*" : ""}`;
+    const time = `${formatMinutes(route.metrics.tiempo)}${route.metrics.tiempo === minTime ? "*" : ""}`;
+    const co2 = `${formatNumber0(route.metrics.co2)}${route.metrics.co2 === minCo2 ? "*" : ""}`;
+    const price = `${formatNumber0(route.metrics.precio)}${route.metrics.precio === minPrice ? "*" : ""}`;
+    lines.push(
+      `  ${route.label.padEnd(14)}${stops.padStart(9)}${time.padStart(12)}${co2.padStart(11)}${price.padStart(13)}`
+    );
+  }
+
+  lines.push("  --------------------------------------------------------------------------");
+  lines.push(`  (*) mejor opción de la columna | tiempo, CO2 y precio (${graph.meta.currency || ""})`);
+  return lines;
+}
+
+function deltaMinutes(other, reference) {
+  const delta = other - reference;
+  if (delta === 0) return "igual";
+  return delta > 0 ? `+${formatMinutes(delta)}` : `-${formatMinutes(-delta)}`;
+}
+
+function percentSaved(reference, other) {
+  return reference ? ((reference - other) / reference) * 100 : 0;
 }
 
 function writeCentrality() {
-  if (!state.centrality) state.centrality = centrality();
-  const values = state.centrality;
-  writeLine([
-    "[Centralidad]",
-    "",
-    "  Top GRADO DE SALIDA (mayores distribuidores):",
-    ...values.out.slice(0, 5).map(([code, value]) => `    ${code} -> ${value} destinos directos`),
-    "",
-    "  Top GRADO DE ENTRADA (destinos más populares):",
-    ...values.incoming.slice(0, 5).map(([code, value]) => `    ${code} <- ${value} orígenes directos`),
-    "",
-    "  Closeness (cercanía; distancia = escalas + aristas):",
-    ...values.close.slice(0, 5).map(([code, value]) => `    ${code} -> ${value.toFixed(4)}`),
-    "",
-    `  Hubs críticos (Betweenness aprox., ${values.samples} pares):`,
-    ...(values.betweenness.length
-      ? values.betweenness.slice(0, 5).map(([code, value]) => `    ${code} -> aparece como escala en ${value} rutas mínimas`)
-      : ["    (no se registraron nodos intermedios)"]),
-  ]);
+  writeLine(CENTRALITY_ANSWER_LINES);
 }
 
 function centrality() {
@@ -764,22 +903,7 @@ function centrality() {
 }
 
 function writeTopology() {
-  if (!state.topology) state.topology = topology();
-  const values = state.topology;
-  writeLine([
-    "[Métricas de topología]",
-    `  Componentes fuertemente conexas: ${values.components.length} (${values.components.filter((component) => component.length === 1).length} de un solo aeropuerto).`,
-    `  Mayor componente: ${values.largest.length} aeropuertos.`,
-    "",
-    "  Distancia usada: ESCALAS + ARISTAS (stops de la ruta + nº de tramos).",
-    `    Diámetro : ${values.diameter}`,
-    `    Radio    : ${values.radius}`,
-    `    Centro    : ${values.center.join(", ") || "-"}`,
-    `    Periferia : ${values.periphery.join(", ") || "-"}`,
-    "",
-    "  Coeficiente de agrupamiento (clustering, no dirigido):",
-    `    Promedio de la red: ${values.clustering.average.toFixed(4)}`,
-  ]);
+  writeLine(TOPOLOGY_ANSWER_LINES);
 }
 
 function topology() {
@@ -898,16 +1022,21 @@ function rankSort(a, b) {
 
 function formatCost(value, criterion) {
   if (criterion === "tiempo") return formatMinutes(value);
-  if (criterion === "co2") return `${formatInteger(Math.round(value))} kg`;
-  if (criterion === "precio") return `${formatInteger(Math.round(value))} ${graph.meta.currency || ""}`.trim();
+  if (criterion === "co2") return `${formatNumber0(value)} kg`;
+  if (criterion === "precio") return `${formatNumber0(value)} ${graph.meta.currency || ""}`.trim();
   return String(value);
 }
 
 function formatMinutes(value) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "-";
-  const hours = Math.floor(value / 60);
-  const minutes = Math.round(value % 60);
+  const rounded = Math.round(value);
+  const hours = Math.floor(rounded / 60);
+  const minutes = rounded % 60;
   return hours ? `${hours}h ${String(minutes).padStart(2, "0")}m` : `${minutes}m`;
+}
+
+function formatNumber0(value) {
+  return String(Math.round(value));
 }
 
 function formatInteger(value) {
