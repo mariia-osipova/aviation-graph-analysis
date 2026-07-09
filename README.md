@@ -1,3 +1,3 @@
-![EcoSky terminal screenshot](ecosky-terminal-screenshot.png)
+![img.png](img.png)
 
 https://mariia-osipova.github.io/aviation-graph-analysis/
