@@ -772,7 +772,7 @@ function writeBestRoutes(originCode, destinationCode) {
 function writeKRoutes(originCode, destinationCode, criterion, k) {
   const origin = codeToId(originCode);
   const destination = codeToId(destinationCode);
-  const requestedK = Math.max(1, k || 3);
+  const requestedK = Number.isFinite(k) ? k : 3;
   const routes = kShortest(origin, destination, requestedK, criterion);
 
   const criterionName = { tiempo: "tiempo", co2: "CO2", precio: "precio", escalas: "escalas" }[criterion] || criterion;
